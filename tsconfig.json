@@ -1,0 +1,25 @@
+{
+    "compilerOptions": {
+      "module": "commonjs",
+      "target": "es2018",
+      "removeComments": true,
+      "declarationMap": true,
+      "declaration": true,
+      "sourceMap": true,
+      "moduleResolution": "node",
+      "noImplicitAny": false,
+      "experimentalDecorators": true,
+      "esModuleInterop": true,
+      "allowSyntheticDefaultImports": true,
+      "allowJs": true,
+      "outDir": "dist",
+      "resolveJsonModule": true,
+      "lib": [
+        "es2018",
+        "dom"
+      ]
+    },
+    "exclude": [
+      "node_modules","__test__",
+    ],
+  }
