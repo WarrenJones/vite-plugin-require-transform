@@ -5,7 +5,19 @@ import generate from "@babel/generator";
 import * as t from '@babel/types';
 
 
-export default function vitePluginRequireTransform(fileRegex: RegExp = /.ts$|.tsx$/,prefix='_vite_plugin_require_transform_') {
+export type VitePluginRequireTransformParamsType = {
+	//filter files that should enter the plugin
+	fileRegex?: RegExp,
+	//prefix that would plugin into the requireSpecifier 
+	importPrefix?: string,
+	//to deal with the requireSpecifier
+	importPathHandler?: Function
+}
+export default function vitePluginRequireTransform(
+	params: VitePluginRequireTransformParamsType = {}
+) {
+
+	const { fileRegex = /.ts$|.tsx$/, importPrefix: prefix = '_vite_plugin_require_transform_', importPathHandler } = params;
 	/**
 	 * <path,exports>
 	 */
@@ -29,9 +41,13 @@ export default function vitePluginRequireTransform(fileRegex: RegExp = /.ts$|.ts
 					enter(path) {
 						//require('./xxx')
 						if (path.isIdentifier({ name: 'require' }) && t.isCallExpression(path?.parentPath?.node)) {
-							const requirePath = (path.parentPath.node.arguments[0] as t.StringLiteral).value;
-							//获取文件名
-							const requireSpecifier = requirePath.replace(/(.*\/)*([^.]+).*/ig, "$2").replace(/-/g, '_');
+							let requirePath = (path.parentPath.node.arguments[0] as t.StringLiteral).value;
+							//get the file name
+							if (importPathHandler) {
+								requirePath = importPathHandler(requirePath);
+							} else {
+								requirePath = requirePath.replace(/(.*\/)*([^.]+).*/ig, "$2").replace(/-/g, '_');
+							}
 							if (!importMap.has(requirePath)) {
 								importMap.set(requirePath, new Set());
 							}
@@ -43,20 +59,20 @@ export default function vitePluginRequireTransform(fileRegex: RegExp = /.ts$|.ts
 								if (requirePathExports) {
 									requirePathExports.add(currentExport);
 									importMap.set(requirePath, requirePathExports);
-									//替换当前行代码
-									path.parentPath.parentPath.replaceWithSourceString(prefix + requireSpecifier + currentExport)
+									//replace current line code
+									path.parentPath.parentPath.replaceWithSourceString(prefix + requirePath + currentExport)
 								}
 							} else {
-								//替换当前行代码
-								path.parentPath.replaceWithSourceString(prefix + requireSpecifier)
+								//replace current line code
+								path.parentPath.replaceWithSourceString(prefix + requirePath)
 								/**
-								 * 如果是这种情况
+								 * if such case like 
 								 * const result = condition ? null : require('zzz/yyy/xxx');
-								 * 需要记录这个result变量，然后往下全局找找他调用了什么方法，例如
-                                 * result.start();
+								 * need to record the result variable，and find what it invoke afterwards,eg.
+								 * result.start();
 								 * result.stop();
 								 * 
-								 * 最终变成
+								 * finally it will be turned into
 								 * import {start as _vite_plugin_require_transform_xxxstart,stop as _vite_plugin_require_transform_xxxstop} from "zzz/yyy/xxx"
 								 * const _vite_plugin_require_transform_xxx = {start:_vite_plugin_require_transform_start,stop:_vite_plugin_require_transform_stop}
 								 * const result = _vite_plugin_require_transform_xxx;
@@ -74,26 +90,26 @@ export default function vitePluginRequireTransform(fileRegex: RegExp = /.ts$|.ts
 								}
 							}
 						}
-						
-						//检查是不是XXX.forEach()
-						const isRawMethodCheck = (currentExport:string)=>{
-							return Object.prototype.toString.call(new Array()[currentExport]).includes("Function")||Object.prototype.toString.call(new Object()[currentExport]).includes("Function")
+
+						//check if raw method such as XXX.forEach()
+						const isRawMethodCheck = (currentExport: string) => {
+							return Object.prototype.toString.call(new Array()[currentExport]).includes("Function") || Object.prototype.toString.call(new Object()[currentExport]).includes("Function")
 						}
-						//存在了变量的调用
-						//如：XXX.start();
+						//exist function invoke
+						//eg：XXX.start();
 						if (t.isIdentifier(path.node) && variableMather[path.node?.name]) {
 							const requirePath = variableMather[path.node.name];
 							const requirePathExports = importMap.get(requirePath);
 							const currentExport = ((path.parentPath.node as t.MemberExpression)?.property as t.Identifier)?.name;
-							if (currentExport && !isRawMethodCheck(currentExport)&&requirePathExports)
+							if (currentExport && !isRawMethodCheck(currentExport) && requirePathExports)
 								requirePathExports.add(currentExport);
 						}
 					}
 				});
-				//插入import
+				//insert import
 				for (const importItem of importMap.entries()) {
 					const requireSpecifier = importItem[0].replace(/(.*\/)*([^.]+).*/ig, "$2").replace(/-/g, '_');
-					//非default
+					//non default
 					if (importItem[1].size) {
 						const importSpecifiers = []
 						for (const item of importItem[1].values()) {
@@ -108,7 +124,11 @@ export default function vitePluginRequireTransform(fileRegex: RegExp = /.ts$|.ts
 					}
 				}
 				const statementList: t.Statement[] = [];
-				//插入赋值语句 例如： const _vite_plugin_require_transform_XXX = {start:_vite_plugin_require_transform__XXXstart,stop:_vite_plugin_require_transform__XXXstop}
+				/**
+				 * insert the assignment 
+				 * eg： 
+				 * const _vite_plugin_require_transform_XXX = {start:_vite_plugin_require_transform__XXXstart,stop:_vite_plugin_require_transform__XXXstop}
+				 * */
 				for (const requirePath of Object.values(variableMather)) {
 					const importExports = importMap.get(requirePath);
 					if (importExports?.size) {
@@ -122,7 +142,7 @@ export default function vitePluginRequireTransform(fileRegex: RegExp = /.ts$|.ts
 						statementList.push(t.variableDeclaration('const', [t.variableDeclarator(idIdentifier, initObjectExpression)]));
 					}
 				}
-				//把statementList插到import下方
+				//insert the statementList right the end of  ImportDeclaration 
 				const index = ast.program.body.findIndex((value) => {
 					return !t.isImportDeclaration(value);
 				})

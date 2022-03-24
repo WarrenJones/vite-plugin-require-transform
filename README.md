@@ -26,7 +26,7 @@ or
 npm i vite-plugin-require-transform --save-dev
 ```
 ## Usage
-```
+```typescript
 // vite.config.(t|j)s
 
 import { defineConfig } from 'vite';
@@ -42,13 +42,24 @@ import requireTransform from 'vite-plugin-require-transform';
 export default defineConfig({
   plugins: [
     // passing string type Regular expression
-    requireTransform(fileRegex: RegExp = /.ts$|.tsx$/,prefix:string='_vite_plugin_require_transform_'),
+    requireTransform({}),
   ],
 });
+
+
+// check the vite-plugin-require-transform params'type 
+export type VitePluginRequireTransformParamsType = {
+	//filter files that should enter the plugin
+	fileRegex?: RegExp = /.ts$|.tsx$/ ,
+	//prefix that would plugin into the requireSpecifier 
+	importPrefix? = '_vite_plugin_require_transform_': string,
+	//to deal with the requireSpecifier
+	importPathHandler?: Function
+}
 ```
 
 ## What vite-plugin-require-transform actually do 
-
+you can also check the __test__ directory to see the cases.
 ### case 1:
 ```typescript
 const case1 = require("case1");
@@ -119,4 +130,50 @@ const case2c = _vite_plugin_require_transform_test2C;
 case2c.forEach(item => {
   console.log('item', item);
 });
+```
+
+### case 3:
+when exist a case as same fileName,different extensions,by default it would be error cause the plugin only capture the path without extension.
+``` typescript
+
+//same path,different extension
+const testCaseA = require("caseA.extA?aaa");
+const testCaseB = require("caseA.extB?bbb");
+
+console.log("caseA", testCaseA)
+console.log("caseB", testCaseB)
+```
+
+so we need to make a importPathHandler to deal with the situtation
+``` typescript 
+//check out __test__/index
+glob("__test__/case3/*.ts", {
+    ignore: "**/*transformed_result.ts"
+}, async (err, files) => {
+    for (const file of files) {
+        const fileContent = readFileSync(file, 'utf-8');
+        const transformedContent = await vitePluginRequireTransform(
+            {
+                importPathHandler: (requirePath: string) => {
+                    return requirePath.replace('.', '_').replace('?', "_");
+                }
+            }
+        ).transform(fileContent, file);
+        writeFileSync(file.replace('.ts', '_transformed_result.ts'), transformedContent.code);
+    }
+})  
+```
+
+will be transformed into 
+
+
+
+``` typescript
+import _vite_plugin_require_transform_caseA_extB_bbb from "caseA_extB_bbb";
+import _vite_plugin_require_transform_caseA_extA_aaa from "caseA_extA_aaa";
+//same path,different extension
+const testCaseA = _vite_plugin_require_transform_caseA_extA_aaa;
+const testCaseB = _vite_plugin_require_transform_caseA_extB_bbb;
+console.log("caseA", testCaseA);
+console.log("caseB", testCaseB);
 ```
