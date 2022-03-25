@@ -1,7 +1,7 @@
-import { start as _vite_plugin_require_transform_case2start, stop as _vite_plugin_require_transform_case2stop } from "case2";
+import { start as _vite_plugin_require_transform_case2_start, stop as _vite_plugin_require_transform_case2_stop } from "case2";
 const _vite_plugin_require_transform_case2 = {
-  start: _vite_plugin_require_transform_case2start,
-  stop: _vite_plugin_require_transform_case2stop
+  start: _vite_plugin_require_transform_case2_start,
+  stop: _vite_plugin_require_transform_case2_stop
 };
 const case2A = location.host == 'test' ? null : _vite_plugin_require_transform_case2;
 

@@ -26,6 +26,10 @@ export default function vitePluginRequireTransform(
 	 * {variable,path}
 	 */
 	let variableMather: { [key: string]: string } = {};
+	/**
+	* {variable,path}
+	*/
+	let requirePathMatcher: { [key: string]: string } = {};
 	return {
 		name: prefix,
 		async transform(code: string, id: string) {
@@ -41,13 +45,15 @@ export default function vitePluginRequireTransform(
 					enter(path) {
 						//require('./xxx')
 						if (path.isIdentifier({ name: 'require' }) && t.isCallExpression(path?.parentPath?.node)) {
-							let requirePath = (path.parentPath.node.arguments[0] as t.StringLiteral).value;
+							let originalRequirePath = (path.parentPath.node.arguments[0] as t.StringLiteral).value;
+							let requirePath = originalRequirePath;
 							//get the file name
 							if (importPathHandler) {
 								requirePath = importPathHandler(requirePath);
 							} else {
 								requirePath = requirePath.replace(/(.*\/)*([^.]+).*/ig, "$2").replace(/-/g, '_');
 							}
+							requirePathMatcher[requirePath] = originalRequirePath;
 							if (!importMap.has(requirePath)) {
 								importMap.set(requirePath, new Set());
 							}
@@ -60,7 +66,7 @@ export default function vitePluginRequireTransform(
 									requirePathExports.add(currentExport);
 									importMap.set(requirePath, requirePathExports);
 									//replace current line code
-									path.parentPath.parentPath.replaceWithSourceString(prefix + requirePath + currentExport)
+									path.parentPath.parentPath.replaceWithSourceString(prefix + requirePath + "_" + currentExport)
 								}
 							} else {
 								//replace current line code
@@ -108,18 +114,25 @@ export default function vitePluginRequireTransform(
 				});
 				//insert import
 				for (const importItem of importMap.entries()) {
-					const requireSpecifier = importItem[0].replace(/(.*\/)*([^.]+).*/ig, "$2").replace(/-/g, '_');
+					let originalPath = requirePathMatcher[importItem[0]];
+					let requireSpecifier = importItem[0];
+					//get the file name
+					if (importPathHandler) {
+						requireSpecifier = importPathHandler(requireSpecifier);
+					} else {
+						requireSpecifier = requireSpecifier.replace(/(.*\/)*([^.]+).*/ig, "$2").replace(/-/g, '_');
+					}
 					//non default
 					if (importItem[1].size) {
 						const importSpecifiers = []
 						for (const item of importItem[1].values()) {
-							item && importSpecifiers.push(t.importSpecifier(t.identifier(prefix + requireSpecifier + item), t.identifier(item)))
+							item && importSpecifiers.push(t.importSpecifier(t.identifier(prefix + requireSpecifier + "_" + item), t.identifier(item)))
 						}
-						const importDeclaration = t.importDeclaration(importSpecifiers, t.stringLiteral(importItem[0]));
+						const importDeclaration = t.importDeclaration(importSpecifiers, t.stringLiteral(originalPath));
 						ast.program.body.unshift(importDeclaration);
 					} else {
 						const importDefaultSpecifier = [t.importDefaultSpecifier(t.identifier(prefix + requireSpecifier))];
-						const importDeclaration = t.importDeclaration(importDefaultSpecifier, t.stringLiteral(importItem[0]));
+						const importDeclaration = t.importDeclaration(importDefaultSpecifier, t.stringLiteral(originalPath));
 						ast.program.body.unshift(importDeclaration);
 					}
 				}
@@ -127,16 +140,15 @@ export default function vitePluginRequireTransform(
 				/**
 				 * insert the assignment 
 				 * eg： 
-				 * const _vite_plugin_require_transform_XXX = {start:_vite_plugin_require_transform__XXXstart,stop:_vite_plugin_require_transform__XXXstop}
+				 * const _vite_plugin_require_transform_XXX = {start:_vite_plugin_require_transform__XXX_start,stop:_vite_plugin_require_transform__XXX_stop}
 				 * */
 				for (const requirePath of Object.values(variableMather)) {
 					const importExports = importMap.get(requirePath);
 					if (importExports?.size) {
-						const requireSpecifier = requirePath.replace(/(.*\/)*([^.]+).*/ig, "$2").replace(/-/g, '_');
-						const idIdentifier = t.identifier(prefix + requireSpecifier)
+						const idIdentifier = t.identifier(prefix + requirePath)
 						const properties = []
 						for (const currentExport of importExports?.values()) {
-							properties.push(t.objectProperty(t.identifier(currentExport), t.identifier(prefix + requireSpecifier + currentExport)));
+							properties.push(t.objectProperty(t.identifier(currentExport), t.identifier(prefix + requirePath + "_" + currentExport)));
 						}
 						const initObjectExpression = t.objectExpression(properties);
 						statementList.push(t.variableDeclaration('const', [t.variableDeclarator(idIdentifier, initObjectExpression)]));
