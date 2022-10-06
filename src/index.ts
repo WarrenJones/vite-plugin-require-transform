@@ -41,11 +41,39 @@ export default function vitePluginRequireTransform(
 					sourceType: "module",
 					plugins,
 				});
+
+				const declaredVariables: {[key: string]: t.VariableDeclarator } = {};
+
 				traverse(ast, {
 					enter(path) {
+
+						if (path.parentPath?.node && t.isVariableDeclarator(path.parentPath.node)) {
+							const name = ((path.parentPath.node as t.VariableDeclarator).id as t.Identifier).name;
+							if(!declaredVariables[name]) {
+								declaredVariables[name] = path.parentPath.node;
+							}
+						}
+
 						//require('./xxx')
 						if (path.isIdentifier({ name: 'require' }) && t.isCallExpression(path?.parentPath?.node)) {
-							let originalRequirePath = (path.parentPath.node.arguments[0] as t.StringLiteral).value;
+							const argument = path.parentPath.node.arguments[0] as (t.StringLiteral | t.TemplateLiteral);
+							const isTemplateLiteral = t.isTemplateLiteral(argument);
+							let templateElementValue = '';
+
+							if(isTemplateLiteral) {
+								const tl = argument as t.TemplateLiteral;
+
+								for(let i = 0; i < tl.quasis.length; i++) {
+									const element = tl.quasis[i];
+									const identifier = (tl.expressions[i] as t.Identifier | undefined);
+									const variableValue = (declaredVariables[identifier?.name]?.init as t.StringLiteral | undefined)?.value ?? '';
+
+									templateElementValue += element?.value?.raw;
+									templateElementValue += variableValue;
+								}
+							}
+
+							let originalRequirePath = !isTemplateLiteral ? (argument as t.StringLiteral).value : templateElementValue;
 							let requirePath = originalRequirePath;
 							//get the file name
 							if (importPathHandler) {
