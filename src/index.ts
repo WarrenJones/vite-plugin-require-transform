@@ -147,9 +147,8 @@ export default function vitePluginRequireTransform(
 					//get the file name
 					if (importPathHandler) {
 						requireSpecifier = importPathHandler(requireSpecifier);
-					} else {
-						requireSpecifier = requireSpecifier.replace(/(.*\/)*([^.]+).*/ig, "$2").replace(/-/g, '_');
 					}
+					
 					//non default
 					if (importItem[1].size) {
 						const importSpecifiers = []
