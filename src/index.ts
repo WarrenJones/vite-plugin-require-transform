@@ -144,12 +144,7 @@ export default function vitePluginRequireTransform(
 				for (const importItem of importMap.entries()) {
 					let originalPath = requirePathMatcher[importItem[0]];
 					let requireSpecifier = importItem[0];
-					//get the file name
-					if (importPathHandler) {
-						requireSpecifier = importPathHandler(requireSpecifier);
-					} else {
-						requireSpecifier = requireSpecifier.replace(/(.*\/)*([^.]+).*/ig, "$2").replace(/-/g, '_');
-					}
+					
 					//non default
 					if (importItem[1].size) {
 						const importSpecifiers = []
