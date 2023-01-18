@@ -6,7 +6,7 @@
   "types": "dist/index.d.ts",
   "type": "module",
   "scripts": {
-    "test": "ts-node __test__/index.ts",
+    "test": "ts-node --project tsconfig.node.json __test__/index.ts",
     "build": "rm -rf dist &&  tsc",
     "ver": "npm version patch",
     "pub": "npm run build && npm run ver && npm publish"

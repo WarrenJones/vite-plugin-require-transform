@@ -1,7 +1,7 @@
 
 import * as parser from "@babel/parser";
 import traverse from "@babel/traverse";
-import generate from "@babel/generator";
+import generate, { GeneratorResult } from "@babel/generator";
 import * as t from '@babel/types';
 
 
@@ -34,22 +34,24 @@ export default function vitePluginRequireTransform(
 		name: prefix,
 		async transform(code: string, id: string) {
 			let newCode = code;
+			let sourcemap: GeneratorResult['map'] = null;
 			if (fileRegex.test(id)) {
 				let plugins: parser.ParserPlugin[] = [];
 
 				const ast = parser.parse(code, {
 					sourceType: "module",
 					plugins,
+					sourceFilename: id
 				});
 
-				const declaredVariables: {[key: string]: t.VariableDeclarator } = {};
+				const declaredVariables: { [key: string]: t.VariableDeclarator } = {};
 
 				traverse(ast, {
 					enter(path) {
 
 						if (path.parentPath?.node && t.isVariableDeclarator(path.parentPath.node)) {
 							const name = ((path.parentPath.node as t.VariableDeclarator).id as t.Identifier).name;
-							if(!declaredVariables[name]) {
+							if (!declaredVariables[name]) {
 								declaredVariables[name] = path.parentPath.node;
 							}
 						}
@@ -60,10 +62,10 @@ export default function vitePluginRequireTransform(
 							const isTemplateLiteral = t.isTemplateLiteral(argument);
 							let templateElementValue = '';
 
-							if(isTemplateLiteral) {
+							if (isTemplateLiteral) {
 								const tl = argument as t.TemplateLiteral;
 
-								for(let i = 0; i < tl.quasis.length; i++) {
+								for (let i = 0; i < tl.quasis.length; i++) {
 									const element = tl.quasis[i];
 									const identifier = (tl.expressions[i] as t.Identifier | undefined);
 									const variableValue = (declaredVariables[identifier?.name]?.init as t.StringLiteral | undefined)?.value ?? '';
@@ -189,12 +191,12 @@ export default function vitePluginRequireTransform(
 				ast.program.body.splice(index, 0, ...statementList);
 				const output = generate(ast);
 				newCode = output.code;
-
+				sourcemap = output.map;
 
 			}
 			importMap = new Map<string, Set<string>>();
 			variableMather = {};
-			return { code: newCode };
+			return { code: newCode, map: sourcemap };
 		},
 	};
 }

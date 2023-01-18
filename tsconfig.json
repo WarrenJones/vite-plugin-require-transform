@@ -16,5 +16,10 @@
     "resolveJsonModule": true,
     "lib": ["es2018", "dom"]
   },
+  "ts-node": {
+    "compilerOptions": {
+      "module": "commonjs"
+    }
+  },
   "exclude": ["node_modules", "__test__"]
 }
