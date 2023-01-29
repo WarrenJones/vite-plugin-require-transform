@@ -5,7 +5,7 @@ import generate, { GeneratorResult } from "@babel/generator";
 import * as t from '@babel/types';
 
 
-export type VitePluginRequireTransformParamsType = {
+type VitePluginRequireTransformParamsType = {
 	//filter files that should enter the plugin
 	fileRegex?: RegExp,
 	//prefix that would plugin into the requireSpecifier 
@@ -13,7 +13,7 @@ export type VitePluginRequireTransformParamsType = {
 	//to deal with the requireSpecifier
 	importPathHandler?: Function
 }
-export default function vitePluginRequireTransform(
+module.exports = function vitePluginRequireTransform(
 	params: VitePluginRequireTransformParamsType = {}
 ) {
 
