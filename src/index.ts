@@ -13,7 +13,8 @@ type VitePluginRequireTransformParamsType = {
 	//to deal with the requireSpecifier
 	importPathHandler?: Function
 }
-module.exports = function vitePluginRequireTransform(
+
+export default function vitePluginRequireTransform(
 	params: VitePluginRequireTransformParamsType = {}
 ) {
 
