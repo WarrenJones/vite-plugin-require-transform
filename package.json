@@ -11,8 +11,9 @@
   "scripts": {
     "test": "ts-node  __test__/index.ts",
     "build": "rm -rf dist &&  tsc",
+    "prepare": "npm run build",
     "ver": "npm version patch",
-    "pub": "npm run build && npm run ver && npm publish"
+    "pub": "npm run prepare && npm run ver && npm publish"
   },
   "repository": {
     "type": "git",
