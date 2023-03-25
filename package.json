@@ -3,16 +3,21 @@
   "version": "1.0.8",
   "description": "A plugin for vite that convert from require syntax to import that compat for es module.",
   "main": "dist/index.js",
+  "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
-  "files": [
-    "dist",
-    "package.json"
-  ],
+  "exports": {
+    ".": {
+      "require": "./dist/index.js",
+      "import": "./dist/index.mjs",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "scripts": {
     "test": "ts-node  __test__/index.ts",
-    "build": "rm -rf dist &&  tsc",
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "prepare": "npm run build",
     "ver": "npm version patch",
-    "pub": "npm run build && npm run ver && npm publish"
+    "pub": "npm run prepare && npm run ver && npm publish"
   },
   "repository": {
     "type": "git",
@@ -40,6 +45,7 @@
     "@types/node": "^16.11.6",
     "glob": "^7.2.0",
     "ts-node": "^10.4.0",
+    "tsup": "^6.7.0",
     "typescript": "^4.4.4"
   }
 }

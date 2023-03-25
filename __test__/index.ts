@@ -1,6 +1,7 @@
 import vitePluginRequireTransform from "../src";
 import { readFileSync, writeFileSync } from "fs";
-import glob from "glob"
+
+const glob = require('glob')
 
 
 glob("__test__/case1/*.ts", {
@@ -37,7 +38,7 @@ glob("__test__/case3/*.ts", {
         ).transform(fileContent, file);
         writeFileSync(file.replace('.ts', '_transformed_result.ts'), transformedContent.code);
     }
-})  
+})
 
 glob("__test__/case4/*.ts", {
     ignore: "**/*transformed_result.ts"
