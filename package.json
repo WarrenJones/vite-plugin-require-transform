@@ -1,10 +1,14 @@
 {
   "name": "vite-plugin-require-transform",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "A plugin for vite that convert from require syntax to import that compat for es module.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "package.json"
+  ],
   "exports": {
     ".": {
       "require": "./dist/index.js",
@@ -15,9 +19,8 @@
   "scripts": {
     "test": "ts-node  __test__/index.ts",
     "build": "tsup src/index.ts --format cjs,esm --dts --clean",
-    "prepare": "npm run build",
     "ver": "npm version patch",
-    "pub": "npm run prepare && npm run ver && npm publish"
+    "pub": "npm run build && npm run ver && npm publish"
   },
   "repository": {
     "type": "git",
