@@ -1,6 +1,6 @@
 {
   "name": "vite-plugin-require-transform",
-  "version": "1.0.16",
+  "version": "1.0.17",
   "description": "A plugin for vite that convert from require syntax to import that compat for es module.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
