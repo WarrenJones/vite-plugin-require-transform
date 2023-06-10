@@ -47,7 +47,7 @@ export default function vitePluginRequireTransform(
 
 				const declaredVariables: { [key: string]: t.VariableDeclarator } = {};
 
-				traverse(ast, {
+				(traverse.default||traverse)(ast, {
 					enter(path) {
 
 						if (path.parentPath?.node && t.isVariableDeclarator(path.parentPath.node)) {
@@ -190,7 +190,7 @@ export default function vitePluginRequireTransform(
 					return !t.isImportDeclaration(value);
 				})
 				ast.program.body.splice(index, 0, ...statementList);
-				const output = generate(ast);
+				const output = (generate.default||generate)(ast);
 				newCode = output.code;
 				sourcemap = output.map;
 
