@@ -21,7 +21,9 @@
     "build": "tsup src/index.ts --format cjs,esm --dts --clean",
     "watch": "tsup src/index.ts --format cjs,esm --dts --clean --watch",
     "ver": "npm version patch",
-    "pub": "npm run build && npm run ver && npm publish --registry=https://registry.npmjs.org"
+    "pub": "npm run build && npm run ver && npm publish --registry=https://registry.npmjs.org",
+
+    "prepare": "npm run build"
   },
   "repository": {
     "type": "git",
