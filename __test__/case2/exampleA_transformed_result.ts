@@ -1,9 +1,5 @@
-import { start as _vite_plugin_require_transform_case2_start, stop as _vite_plugin_require_transform_case2_stop } from "case2";
-const _vite_plugin_require_transform_case2 = {
-  start: _vite_plugin_require_transform_case2_start,
-  stop: _vite_plugin_require_transform_case2_stop
-};
-const case2A = location.host == 'test' ? null : _vite_plugin_require_transform_case2;
+import * as _vite_plugin_require_transform_case2_0 from "case2";
+const case2A = location.host == 'test' ? null : _vite_plugin_require_transform_case2_0.default || _vite_plugin_require_transform_case2_0;
 if (location.host == 'test1') {
   case2A.start();
 }
