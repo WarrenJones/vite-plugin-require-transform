@@ -14,7 +14,10 @@
     "allowJs": true,
     "outDir": "dist",
     "resolveJsonModule": true,
-    "lib": ["es2018", "dom"]
+    "lib": ["es2018", "dom"],
+    "paths": {
+      "@babel/types": ["./node_modules/@babel/types"]
+    }
   },
   "ts-node": {
     "compilerOptions": {

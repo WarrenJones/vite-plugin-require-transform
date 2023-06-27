@@ -39,10 +39,10 @@
   },
   "homepage": "https://github.com/WarrenJones/vite-plugin-require-transform#readme",
   "dependencies": {
-    "@babel/generator": "^7.15.8",
-    "@babel/parser": "^7.15.8",
-    "@babel/traverse": "^7.15.4",
-    "@babel/types": "^7.15.6"
+    "@babel/generator": "^7.22.5",
+    "@babel/parser": "^7.22.5",
+    "@babel/traverse": "^7.22.5",
+    "@babel/types": "^7.22.5"
   },
   "devDependencies": {
     "@types/glob": "^7.2.0",
