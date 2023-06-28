@@ -1,6 +1,6 @@
 {
   "name": "vite-plugin-require-transform",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "description": "A plugin for vite that convert from require syntax to import that compat for es module.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -19,8 +19,10 @@
   "scripts": {
     "test": "ts-node  __test__/index.ts",
     "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "watch": "tsup src/index.ts --format cjs,esm --dts --clean --watch",
     "ver": "npm version patch",
-    "pub": "npm run build && npm run ver && npm publish --registry=https://registry.npmjs.org"
+    "pub": "npm run build && npm run ver && npm publish --registry=https://registry.npmjs.org",
+    "prepare": "npm run build"
   },
   "repository": {
     "type": "git",
@@ -38,10 +40,10 @@
   },
   "homepage": "https://github.com/WarrenJones/vite-plugin-require-transform#readme",
   "dependencies": {
-    "@babel/generator": "^7.15.8",
-    "@babel/parser": "^7.15.8",
-    "@babel/traverse": "^7.15.4",
-    "@babel/types": "^7.15.6"
+    "@babel/generator": "^7.22.5",
+    "@babel/parser": "^7.22.5",
+    "@babel/traverse": "^7.22.5",
+    "@babel/types": "^7.22.5"
   },
   "devDependencies": {
     "@types/glob": "^7.2.0",

@@ -1,16 +1,15 @@
-
 import * as parser from "@babel/parser";
-import traverse from "@babel/traverse";
+import traverse, { NodePath } from "@babel/traverse";
 import generate, { GeneratorResult } from "@babel/generator";
 import * as t from '@babel/types';
 
 
 type VitePluginRequireTransformParamsType = {
-	//filter files that should enter the plugin
+	// Filter files that should enter the plugin
 	fileRegex?: RegExp,
-	//prefix that would plugin into the requireSpecifier 
+	// Prefix for created import variable names
 	importPrefix?: string,
-	//to deal with the requireSpecifier
+	// Function to convert the require path to the import variable name
 	importPathHandler?: Function
 }
 
@@ -18,186 +17,126 @@ export default function vitePluginRequireTransform(
 	params: VitePluginRequireTransformParamsType = {}
 ) {
 
-	const { fileRegex = /.ts$|.tsx$/, importPrefix: prefix = '_vite_plugin_require_transform_', importPathHandler } = params;
-	/**
-	 * <path,exports>
-	 */
-	let importMap = new Map<string, Set<string>>();
-	/**
-	 * {variable,path}
-	 */
-	let variableMather: { [key: string]: string } = {};
-	/**
-	* {variable,path}
-	*/
-	let requirePathMatcher: { [key: string]: string } = {};
+	const {
+		fileRegex = /.ts$|.tsx$/,
+		importPrefix: prefix = '_vite_plugin_require_transform_',
+		importPathHandler = (path: string) => path.replace(/(.*\/)*([^.]+).*/ig, "$2").replace(/-/g, '_')
+	} = params;
+
 	return {
 		name: prefix,
 		async transform(code: string, id: string) {
-			let newCode = code;
-			let sourcemap: GeneratorResult['map'] = null;
-			if (fileRegex.test(id)) {
-				let plugins: parser.ParserPlugin[] = [];
-
-				const ast = parser.parse(code, {
-					sourceType: "module",
-					plugins,
-					sourceFilename: id
-				});
-
-				const declaredVariables: { [key: string]: t.VariableDeclarator } = {};
-
-				(traverse.default||traverse)(ast, {
-					enter(path) {
-
-						if (path.parentPath?.node && t.isVariableDeclarator(path.parentPath.node)) {
-							const name = ((path.parentPath.node as t.VariableDeclarator).id as t.Identifier).name;
-							if (!declaredVariables[name]) {
-								declaredVariables[name] = path.parentPath.node;
-							}
-						}
-
-						//require('./xxx')
-						if (path.isIdentifier({ name: 'require' }) && t.isCallExpression(path?.parentPath?.node)) {
-							const argument = path.parentPath.node.arguments[0] as (t.StringLiteral | t.TemplateLiteral);
-							const isTemplateLiteral = t.isTemplateLiteral(argument);
-							let templateElementValue = '';
-
-							if (isTemplateLiteral) {
-								const tl = argument as t.TemplateLiteral;
-
-								for (let i = 0; i < tl.quasis.length; i++) {
-									const element = tl.quasis[i];
-									const identifier = (tl.expressions[i] as t.Identifier | undefined);
-									const variableValue = (declaredVariables[identifier?.name]?.init as t.StringLiteral | undefined)?.value ?? '';
-
-									templateElementValue += element?.value?.raw;
-									templateElementValue += variableValue;
-								}
-							}
-
-							let originalRequirePath = !isTemplateLiteral ? (argument as t.StringLiteral).value : templateElementValue;
-							let requirePath = originalRequirePath;
-							//get the file name
-							if (importPathHandler) {
-								requirePath = importPathHandler(requirePath);
-							} else {
-								requirePath = requirePath.replace(/(.*\/)*([^.]+).*/ig, "$2").replace(/-/g, '_');
-							}
-							requirePathMatcher[requirePath] = originalRequirePath;
-							if (!importMap.has(requirePath)) {
-								importMap.set(requirePath, new Set());
-							}
-							//require('xxx').AAA
-							if (t.isMemberExpression(path.parentPath.parentPath) && t.isIdentifier((path?.parentPath?.parentPath?.node as t.MemberExpression)?.property)) {
-								const requirePathExports = importMap.get(requirePath);
-								const property = (path?.parentPath?.parentPath?.node as t.MemberExpression)?.property as t.Identifier;
-								const currentExport = property?.name;
-								if (requirePathExports) {
-									requirePathExports.add(currentExport);
-									importMap.set(requirePath, requirePathExports);
-									//replace current line code
-									path.parentPath.parentPath.replaceWithSourceString(prefix + requirePath + "_" + currentExport)
-								}
-							} else {
-								//replace current line code
-								path.parentPath.replaceWithSourceString(prefix + requirePath)
-								/**
-								 * if such case like 
-								 * const result = condition ? null : require('zzz/yyy/xxx');
-								 * need to record the result variable，and find what it invoke afterwards,eg.
-								 * result.start();
-								 * result.stop();
-								 * 
-								 * finally it will be turned into
-								 * import {start as _vite_plugin_require_transform_xxxstart,stop as _vite_plugin_require_transform_xxxstop} from "zzz/yyy/xxx"
-								 * const _vite_plugin_require_transform_xxx = {start:_vite_plugin_require_transform_start,stop:_vite_plugin_require_transform_stop}
-								 * const result = _vite_plugin_require_transform_xxx;
-								 */
-
-								// case1:const result = require('zzz/yyy/xxx');
-								if (t.isVariableDeclarator(path.parentPath?.parentPath?.node)) {
-									const variableDeclarator: t.VariableDeclarator = path.parentPath?.parentPath?.node;
-									variableMather[(variableDeclarator.id as t.Identifier).name] = requirePath;
-								}
-								//case2: const result = condition ? null : require('zzz/yyy/xxx');
-								if (t.isConditionalExpression(path.parentPath?.parentPath?.node) && t.isVariableDeclarator(path?.parentPath?.parentPath?.parentPath?.node)) {
-									const variableDeclarator: t.VariableDeclarator = path.parentPath?.parentPath?.parentPath?.node;
-									variableMather[(variableDeclarator.id as t.Identifier).name] = requirePath;
-								}
-							}
-						}
-
-						//check if raw method such as XXX.forEach()
-						const isRawMethodCheck = (currentExport: string) => {
-							return Object.prototype.toString.call(new Array()[currentExport]).includes("Function") || Object.prototype.toString.call(new Object()[currentExport]).includes("Function")
-						}
-						//exist function invoke
-						//eg：XXX.start();
-						if (t.isIdentifier(path.node) && variableMather[path.node?.name]) {
-							const requirePath = variableMather[path.node.name];
-							const requirePathExports = importMap.get(requirePath);
-							const currentExport = ((path.parentPath.node as t.MemberExpression)?.property as t.Identifier)?.name;
-							if (currentExport && !isRawMethodCheck(currentExport) && requirePathExports)
-								requirePathExports.add(currentExport);
-						}
-					}
-				});
-				//insert import
-				for (const importItem of importMap.entries()) {
-					let originalPath = requirePathMatcher[importItem[0]];
-					let requireSpecifier = importItem[0];
-					//get the file name
-					if (importPathHandler) {
-						requireSpecifier = importPathHandler(requireSpecifier);
-					} else {
-						requireSpecifier = requireSpecifier.replace(/(.*\/)*([^.]+).*/ig, "$2").replace(/-/g, '_');
-					}
-					//non default
-					if (importItem[1].size) {
-						const importSpecifiers = []
-						for (const item of importItem[1].values()) {
-							item && importSpecifiers.push(t.importSpecifier(t.identifier(prefix + requireSpecifier + "_" + item), t.identifier(item)))
-						}
-						const importDeclaration = t.importDeclaration(importSpecifiers, t.stringLiteral(originalPath));
-						ast.program.body.unshift(importDeclaration);
-					} else {
-						const importDefaultSpecifier = [t.importDefaultSpecifier(t.identifier(prefix + requireSpecifier))];
-						const importDeclaration = t.importDeclaration(importDefaultSpecifier, t.stringLiteral(originalPath));
-						ast.program.body.unshift(importDeclaration);
-					}
-				}
-				const statementList: t.Statement[] = [];
-				/**
-				 * insert the assignment 
-				 * eg： 
-				 * const _vite_plugin_require_transform_XXX = {start:_vite_plugin_require_transform__XXX_start,stop:_vite_plugin_require_transform__XXX_stop}
-				 * */
-				for (const requirePath of Object.values(variableMather)) {
-					const importExports = importMap.get(requirePath);
-					if (importExports?.size) {
-						const idIdentifier = t.identifier(prefix + requirePath)
-						const properties = []
-						for (const currentExport of importExports?.values()) {
-							properties.push(t.objectProperty(t.identifier(currentExport), t.identifier(prefix + requirePath + "_" + currentExport)));
-						}
-						const initObjectExpression = t.objectExpression(properties);
-						statementList.push(t.variableDeclaration('const', [t.variableDeclarator(idIdentifier, initObjectExpression)]));
-					}
-				}
-				//insert the statementList right the end of  ImportDeclaration 
-				const index = ast.program.body.findIndex((value) => {
-					return !t.isImportDeclaration(value);
-				})
-				ast.program.body.splice(index, 0, ...statementList);
-				const output = (generate.default||generate)(ast);
-				newCode = output.code;
-				sourcemap = output.map;
-
+			if (!fileRegex.test(id)) {
+				return { code: code, map: null };
 			}
-			importMap = new Map<string, Set<string>>();
-			variableMather = {};
-			return { code: newCode, map: sourcemap };
+
+			const importMap = new Map<string, NodePath<t.Node>[]>;
+
+			const plugins: parser.ParserPlugin[] = [];
+
+			const ast = parser.parse(code, {
+				sourceType: "module",
+				plugins,
+				sourceFilename: id
+			});
+
+			const declaredVariables: { [key: string]: t.VariableDeclarator } = {};
+
+			// Collect `require(...)`
+			(traverse.default||traverse)(ast, {
+				enter(path) {
+
+					const reportError = (message: string) => {
+						const loc = path.parentPath?.node.loc?.start;
+						console.error(message + ' in ' + id + (loc ? ":" + loc.line + ':' + loc.column : ""));
+					}
+
+					if (path.parentPath?.node && t.isVariableDeclarator(path.parentPath.node)) {
+						const name = ((path.parentPath.node as t.VariableDeclarator).id as t.Identifier).name;
+						if (!declaredVariables[name]) {
+							declaredVariables[name] = path.parentPath.node;
+						}
+					}
+
+					if (path.isIdentifier({ name: 'require' }) && t.isCallExpression(path?.parentPath?.node)) {
+						const argument = path.parentPath.node.arguments[0];
+
+						let requirePath: string | undefined = undefined;
+						if (t.isTemplateLiteral(argument)) {
+							const tl = argument as t.TemplateLiteral;
+
+							let templateElementValue = '';
+							for (let i = 0; i < tl.quasis.length; i++) {
+								const element = tl.quasis[i];
+								const expression = tl.expressions[i]
+								
+								if (expression === undefined) {
+									continue;
+								}
+
+								if (t.isIdentifier(expression)) {
+									const identifier = expression as t.Identifier;
+
+									const variableValue = declaredVariables[identifier.name]?.init
+
+									if ((variableValue === undefined) || (variableValue === null)) {
+										reportError(`Unknown variable for template value: "${identifier.name}"`);
+										continue;
+									}
+
+									if (t.isStringLiteral(variableValue)) {
+										const sl = variableValue as t.StringLiteral;
+
+										templateElementValue += element.value.raw;
+										templateElementValue += variableValue.value;
+									} else {
+										reportError(`Unknown type of template value: "${variableValue.type}" for "${identifier.name}"`);
+									}
+							
+								} else {
+									reportError(`Unknown type of template expression: "${expression.type}"`);
+								}
+							}
+							requirePath = templateElementValue;
+						} else if (t.isStringLiteral(argument)) {
+							const sl = argument as t.StringLiteral;
+
+							requirePath = sl.value;
+						} else {
+							reportError(`Unknown type of require argument: "${argument.type}"`);
+							return;
+						}
+
+						const nodes = importMap.get(requirePath) ?? []
+						nodes.push(path.parentPath);
+						importMap.set(requirePath, nodes);
+					}
+				}
+			});
+
+			// Transform the code
+			let importIndex = 0;
+			for (const [requirePath, nodes] of importMap) {
+
+				const importVariableName = prefix + importPathHandler(requirePath) + '_' + importIndex++;
+				const identifier = t.identifier(importVariableName);
+
+				// Create import statement
+				const importNamespaceSpecifier = t.importNamespaceSpecifier(identifier);
+				const importDeclaration = t.importDeclaration([importNamespaceSpecifier], t.stringLiteral(requirePath));
+				importDeclaration.loc = nodes[0].node.loc
+				ast.program.body.unshift(importDeclaration);
+
+				// Replace `require(...)` by import variable
+				const identifierDefault = t.memberExpression(identifier, t.identifier("default"));
+				const identifierDefaultOrIdentifier = t.logicalExpression('||', identifierDefault, identifier);
+				nodes.forEach(node => {
+					node.replaceWith(identifierDefaultOrIdentifier);
+				});
+			}
+
+			const output =  (generate.default||generate)(ast, { sourceMaps: true });
+			return { code: output.code, map: output.map };
 		},
 	};
 }

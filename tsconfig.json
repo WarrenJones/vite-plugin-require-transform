@@ -6,20 +6,23 @@
     "declarationMap": true,
     "declaration": true,
     "sourceMap": true,
+    "strictNullChecks": true,
     "moduleResolution": "node",
-    "noImplicitAny": false,
     "experimentalDecorators": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "allowJs": true,
     "outDir": "dist",
     "resolveJsonModule": true,
-    "lib": ["es2018", "dom"]
+    "lib": ["es2018", "dom"],
+    "paths": {
+      "@babel/types": ["./node_modules/@babel/types"]
+    }
   },
   "ts-node": {
     "compilerOptions": {
       "module": "commonjs"
     }
   },
-  "exclude": ["node_modules", "__test__"]
+  "exclude": ["node_modules", "__test__", "dist"]
 }
