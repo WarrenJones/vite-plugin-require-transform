@@ -1,15 +1,19 @@
 import * as parser from "@babel/parser";
-import traverse, { NodePath } from "@babel/traverse";
-import generate, { GeneratorResult } from "@babel/generator";
+import _traverse, { NodePath } from "@babel/traverse";
+import _generate, { GeneratorResult } from "@babel/generator";
 import * as t from '@babel/types';
+
+// Fixup babel imports https://github.com/babel/babel/issues/13855#issuecomment-945123514
+const traverse = ((_traverse as any).default || _traverse) as typeof _traverse;
+const generate = ((_generate as any).default || _generate) as typeof _generate;
 
 
 type VitePluginRequireTransformParamsType = {
-	// Filter files that should enter the plugin
+	/** Filter files that should enter the plugin */
 	fileRegex?: RegExp,
-	// Prefix for created import variable names
+	/** Prefix for created import variable names */
 	importPrefix?: string,
-	// Function to convert the require path to the import variable name
+	/** Function to convert the require path to the import variable name */
 	importPathHandler?: Function
 }
 
@@ -43,7 +47,7 @@ export default function vitePluginRequireTransform(
 			const declaredVariables: { [key: string]: t.VariableDeclarator } = {};
 
 			// Collect `require(...)`
-			(traverse.default||traverse)(ast, {
+			traverse(ast, {
 				enter(path) {
 
 					const reportError = (message: string) => {
@@ -135,7 +139,7 @@ export default function vitePluginRequireTransform(
 				});
 			}
 
-			const output =  (generate.default||generate)(ast, { sourceMaps: true });
+			const output = generate(ast, { sourceMaps: true });
 			return { code: output.code, map: output.map };
 		},
 	};
