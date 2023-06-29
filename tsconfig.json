@@ -2,7 +2,6 @@
   "compilerOptions": {
     "module": "CommonJS",
     "target": "es2018",
-    "removeComments": true,
     "declarationMap": true,
     "declaration": true,
     "sourceMap": true,

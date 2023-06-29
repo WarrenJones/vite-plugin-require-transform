@@ -9,11 +9,11 @@ const generate = ((_generate as any).default || _generate) as typeof _generate;
 
 
 type VitePluginRequireTransformParamsType = {
-	// Filter files that should enter the plugin
+	/** Filter files that should enter the plugin */
 	fileRegex?: RegExp,
-	// Prefix for created import variable names
+	/** Prefix for created import variable names */
 	importPrefix?: string,
-	// Function to convert the require path to the import variable name
+	/** Function to convert the require path to the import variable name */
 	importPathHandler?: Function
 }
 
