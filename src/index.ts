@@ -126,10 +126,12 @@ export default function vitePluginRequireTransform(
 				const identifier = t.identifier(importVariableName);
 
 				// Create import statement
+				const firstNode = nodes[0];
 				const importNamespaceSpecifier = t.importNamespaceSpecifier(identifier);
 				const importDeclaration = t.importDeclaration([importNamespaceSpecifier], t.stringLiteral(requirePath));
-				importDeclaration.loc = nodes[0].node.loc
-				ast.program.body.unshift(importDeclaration);
+				importDeclaration.loc = firstNode.node.loc;
+				const rootNode = firstNode.findParent((path) => path.parentPath?.isProgram() || false);
+				rootNode?.insertBefore(importDeclaration);
 
 				// Replace `require(...)` by import variable
 				const identifierDefault = t.memberExpression(identifier, t.identifier("default"));
